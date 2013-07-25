@@ -8,6 +8,10 @@ GCC_VERSION := 4.6.1
 GLIBC_VERSION := 2.14.1
 NEWLIB_VERSION := 1.18.0
 
+GMP_VERSION := 5.1.2
+MPC_VERSION := 1.0.1
+MPFR_VERSION := 3.1.2
+
 LINUX_DIR := $(srcdir)/linux-headers/
 
 MAKE_JOBS := 16
@@ -61,7 +65,7 @@ build-gcc-newlib-src: build-binutils-newlib
 	cp -r $(srcdir)/newlib-$(NEWLIB_VERSION)/newlib $@
 	cp -r $(srcdir)/newlib-$(NEWLIB_VERSION)/libgloss $@
 
-build-gcc-newlib: build-gcc-newlib-src remove-native-libs
+build-gcc-newlib: build-gcc-newlib-src
 	rm -rf $@
 	mkdir $@
 	cd $@ && ../$</configure \
@@ -94,7 +98,7 @@ build-binutils-linux:
 	$(MAKE) -C $@ -j $(MAKE_JOBS)
 	$(MAKE) -C $@ -j $(MAKE_JOBS) install
 
-build-gcc-linux-stage1: build-binutils-linux remove-native-libs
+build-gcc-linux-stage1: build-binutils-linux
 	rm -rf $@
 	mkdir $@
 	cd $@ && $(srcdir)/gcc-$(GCC_VERSION)/configure \
@@ -132,7 +136,7 @@ build-glibc-linux: build-gcc-linux-stage1
 	$(MAKE) -C $@ -j $(MAKE_JOBS) cross-compiling=yes
 	$(MAKE) -C $@ -j $(MAKE_JOBS) install cross-compiling=yes
 
-build-gcc-linux-stage2: build-glibc-linux remove-native-libs
+build-gcc-linux-stage2: build-glibc-linux
 	rm -rf $@
 	mkdir $@
 	cd $@ && $(srcdir)/gcc-$(GCC_VERSION)/configure \
@@ -166,17 +170,18 @@ build-binutils-native:
 	$(MAKE) -C $@ -j $(MAKE_JOBS)
 	$(MAKE) -C $@ -j $(MAKE_JOBS) install
 
-insert-native-libs:
-	-mv $(srcdir)/mpfr $(srcdir)/gcc-$(GCC_VERSION)
-	-mv $(srcdir)/mpc $(srcdir)/gcc-$(GCC_VERSION)
-	-mv $(srcdir)/gmp $(srcdir)/gcc-$(GCC_VERSION)
+obtain-libraries:
+	curl ftp://ftp.gnu.org/gnu/gmp/gmp-$(GMP_VERSION).tar.xz | tar -xJ
+	cp native-patches/gmp-configfsf.sub gmp-$(GMP_VERSION)/configfsf.sub
+	mv gmp-$(GMP_VERSION) gcc-$(GCC_VERSION)/gmp
+	curl http://www.multiprecision.org/mpc/download/mpc-$(MPC_VERSION).tar.gz | tar -xz
+	cp native-patches/mpc-config.sub mpc-$(MPC_VERSION)/config.sub
+	mv mpc-$(MPC_VERSION) gcc-$(GCC_VERSION)/mpc
+	curl http://www.mpfr.org/mpfr-current/mpfr-$(MPFR_VERSION).tar.xz | tar -xJ
+	cp native-patches/mpfr-config.sub mpfr-$(MPFR_VERSION)/config.sub
+	mv mpfr-$(MPFR_VERSION) gcc-$(GCC_VERSION)/mpfr
 
-remove-native-libs:
-	-mv $(srcdir)/gcc-$(GCC_VERSION)/mpfr $(srcdir)
-	-mv $(srcdir)/gcc-$(GCC_VERSION)/mpc $(srcdir)
-	-mv $(srcdir)/gcc-$(GCC_VERSION)/gmp $(srcdir)
-
-build-gcc-native: build-binutils-native insert-native-libs
+build-gcc-native: build-binutils-native obtain-libraries
 	rm -rf $@
 	mkdir $@
 	cd $@ && CFLAGS="-fPIC" $(srcdir)/gcc-$(GCC_VERSION)/configure \
@@ -199,6 +204,7 @@ build-gcc-native: build-binutils-native insert-native-libs
 		--with-mpfr-lib=$(srcdir)/$@/mpfr/src/.libs
 	$(MAKE) -C $@ -j $(MAKE_JOBS)
 	$(MAKE) -C $@ -j $(MAKE_JOBS) install
+	rm -rf gcc-$(GCC_VERSION)/{mpfr,gmp,mpc}
 
 clean:
 	rm -rf build-*

@@ -33,7 +33,7 @@ Linux/RISC-V), first build the Linux cross-compiler (described above).
 
 Patch GCC to define SSIZE_MAX.
 
- % patch -p1 < native-host-linux.patch
+ % patch -p1 < native-patches/native-host-linux.patch
 
 Build binutils and gcc, specifying the installation directory as your 
 target system root as SYSROOT. If you choose, say, /opt/riscv/sysroot, 
